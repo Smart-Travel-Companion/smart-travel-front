@@ -4,12 +4,13 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useOnboarding } from "@/hooks/use-onboarding";
+import { useAuth } from "@/providers/auth-provider";
+import { updateUser, updatePreferences } from "@/lib/auth";
 import { ProgressBar } from "./progress-bar";
 import {
   WelcomeStep,
-  TravelStyleStep,
-  BudgetStep,
-  InterestsStep,
+  PersonalInfoStep,
+  PreferencesStep,
   SummaryStep,
 } from "./steps";
 
@@ -21,18 +22,19 @@ interface OnboardingWizardProps {
 
 export function OnboardingWizard({ user }: OnboardingWizardProps) {
   const router = useRouter();
+  const { user: authUser, refreshUser } = useAuth();
   const [currentStep, setCurrentStep] = React.useState(0);
   const [isLoading, setIsLoading] = React.useState(false);
 
   const {
     data,
-    toggleTravelStyle,
-    setBudget,
-    toggleInterest,
+    setField,
+    togglePreference,
+    isValid,
   } = useOnboarding();
 
   const handleNext = React.useCallback(() => {
-    if (currentStep < 4) {
+    if (currentStep < 3) {
       setCurrentStep((prev) => prev + 1);
     }
   }, [currentStep]);
@@ -44,11 +46,23 @@ export function OnboardingWizard({ user }: OnboardingWizardProps) {
   }, [currentStep]);
 
   const handleComplete = React.useCallback(async () => {
+    if (!authUser?._id) return;
+
     setIsLoading(true);
 
     try {
-      // Simular guardado de preferencias
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // 1. Actualizar datos del perfil
+      await updateUser(authUser._id, {
+        pais: data.pais,
+        ciudad: data.ciudad,
+        ...(data.telefono && { telefono: data.telefono }),
+      });
+
+      // 2. Actualizar preferencias
+      await updatePreferences(authUser._id, data.preferencias);
+
+      // 3. Refrescar datos del usuario en el contexto
+      await refreshUser();
 
       toast.success("¡Perfil configurado correctamente!", {
         description: "Tus preferencias han sido guardadas.",
@@ -62,7 +76,7 @@ export function OnboardingWizard({ user }: OnboardingWizardProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [router]);
+  }, [authUser, data, refreshUser, router]);
 
   const renderStep = () => {
     switch (currentStep) {
@@ -70,32 +84,26 @@ export function OnboardingWizard({ user }: OnboardingWizardProps) {
         return <WelcomeStep userName={user.name} onNext={handleNext} />;
       case 1:
         return (
-          <TravelStyleStep
-            selected={data.travelStyles}
-            onToggle={toggleTravelStyle}
+          <PersonalInfoStep
+            pais={data.pais}
+            ciudad={data.ciudad}
+            telefono={data.telefono}
+            onFieldChange={setField}
             onNext={handleNext}
             onBack={handleBack}
+            isValid={isValid.personalInfo}
           />
         );
       case 2:
         return (
-          <BudgetStep
-            selected={data.budget}
-            onSelect={setBudget}
+          <PreferencesStep
+            selected={data.preferencias}
+            onToggle={togglePreference}
             onNext={handleNext}
             onBack={handleBack}
           />
         );
       case 3:
-        return (
-          <InterestsStep
-            selected={data.interests}
-            onToggle={toggleInterest}
-            onNext={handleNext}
-            onBack={handleBack}
-          />
-        );
-      case 4:
         return (
           <SummaryStep
             data={data}

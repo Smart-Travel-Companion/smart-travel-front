@@ -1,21 +1,19 @@
-import type { Metadata } from "next";
+"use client";
+
 import { OnboardingWizard } from "@/components/onboarding";
-
-export const metadata: Metadata = {
-  title: "Configura tu perfil",
-  description: "Personaliza tu experiencia de viaje en Smart Travel Companion",
-};
-
-// Usuario mock - en producción vendría de la sesión/auth
-const mockUser = {
-  name: "Juan",
-  email: "juan@email.com",
-};
+import { AuthGuard } from "@/components/layout/auth-guard";
+import { useAuth } from "@/providers/auth-provider";
 
 export default function OnboardingPage() {
+  const { user } = useAuth();
+
+  const firstName = user?.nombre?.split(" ")[0] || "Viajero";
+
   return (
-    <div className="w-full max-w-3xl">
-      <OnboardingWizard user={mockUser} />
-    </div>
+    <AuthGuard>
+      <div className="w-full max-w-3xl">
+        <OnboardingWizard user={{ name: firstName }} />
+      </div>
+    </AuthGuard>
   );
 }

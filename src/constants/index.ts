@@ -24,15 +24,15 @@ export const navItems: NavItem[] = [
   },
   {
     title: "Cómo funciona",
-    href: "#how-it-works",
+    href: "/#how-it-works",
   },
   {
     title: "Características",
-    href: "#features",
+    href: "/#features",
   },
   {
     title: "Partners",
-    href: "#partners",
+    href: "/#partners",
   },
 ];
 

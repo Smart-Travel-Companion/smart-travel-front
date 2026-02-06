@@ -150,3 +150,128 @@ export function isAuthenticated(): boolean {
 export function logout(): void {
   removeToken();
 }
+
+// Actualizar perfil del usuario
+export async function updateUser(
+  userId: string,
+  data: Partial<Pick<User, "nombre" | "telefono" | "pais" | "ciudad" | "bio" | "foto">>
+): Promise<User> {
+  const token = getToken();
+  if (!token) throw new AuthError("No hay sesión activa", 401);
+
+  try {
+    const response = await fetch(`${API_URL}/api/users/${userId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+
+    const responseData = await response.json();
+
+    if (!response.ok) {
+      throw new AuthError(
+        responseData.mensaje || responseData.message || "Error al actualizar perfil",
+        response.status
+      );
+    }
+
+    const user = responseData.usuario || responseData;
+    saveUser(user);
+    return user;
+  } catch (error) {
+    if (error instanceof AuthError) throw error;
+    throw new AuthError("Error de conexión. Intenta de nuevo.");
+  }
+}
+
+// Actualizar preferencias del usuario
+export async function updatePreferences(
+  userId: string,
+  preferencias: string[]
+): Promise<string[]> {
+  const token = getToken();
+  if (!token) throw new AuthError("No hay sesión activa", 401);
+
+  try {
+    const response = await fetch(`${API_URL}/api/users/${userId}/preferencias`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ preferencias }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new AuthError(
+        data.mensaje || data.message || "Error al actualizar preferencias",
+        response.status
+      );
+    }
+
+    return data.preferencias || preferencias;
+  } catch (error) {
+    if (error instanceof AuthError) throw error;
+    throw new AuthError("Error de conexión. Intenta de nuevo.");
+  }
+}
+
+// Obtener catálogo de preferencias disponibles
+export async function fetchAvailablePreferences(): Promise<string[]> {
+  try {
+    const response = await fetch(`${API_URL}/api/preferencias`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new AuthError("Error al obtener preferencias", response.status);
+    }
+
+    return data.preferencias || [];
+  } catch (error) {
+    if (error instanceof AuthError) throw error;
+    throw new AuthError("Error de conexión. Intenta de nuevo.");
+  }
+}
+
+// Obtener perfil del usuario autenticado
+export async function fetchProfile(): Promise<User> {
+  const token = getToken();
+  if (!token) {
+    throw new AuthError("No hay sesión activa", 401);
+  }
+
+  try {
+    const response = await fetch(`${API_URL}/api/auth/perfil`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      // Token expirado o inválido
+      if (response.status === 401) {
+        removeToken();
+      }
+      throw new AuthError(
+        data.mensaje || data.message || "Error al obtener perfil",
+        response.status
+      );
+    }
+
+    const user = data.usuario || data;
+    saveUser(user);
+    return user;
+  } catch (error) {
+    if (error instanceof AuthError) {
+      throw error;
+    }
+    throw new AuthError("Error de conexión. Intenta de nuevo.");
+  }
+}

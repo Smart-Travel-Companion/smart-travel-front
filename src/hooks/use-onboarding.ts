@@ -1,53 +1,47 @@
 "use client";
 
 import * as React from "react";
-import type { TravelStyle, BudgetRange } from "@/types";
 
 export interface OnboardingFormData {
-  travelStyles: TravelStyle[];
-  budget: BudgetRange | null;
-  interests: string[];
+  pais: string;
+  ciudad: string;
+  telefono: string;
+  preferencias: string[];
 }
 
 export function useOnboarding(initialData?: Partial<OnboardingFormData>) {
   const [data, setData] = React.useState<OnboardingFormData>({
-    travelStyles: [],
-    budget: null,
-    interests: [],
+    pais: "",
+    ciudad: "",
+    telefono: "",
+    preferencias: [],
     ...initialData,
   });
 
-  const toggleTravelStyle = React.useCallback((style: TravelStyle) => {
+  const setField = React.useCallback(
+    (field: keyof OnboardingFormData, value: string) => {
+      setData((prev) => ({ ...prev, [field]: value }));
+    },
+    []
+  );
+
+  const togglePreference = React.useCallback((pref: string) => {
     setData((prev) => ({
       ...prev,
-      travelStyles: prev.travelStyles.includes(style)
-        ? prev.travelStyles.filter((s) => s !== style)
-        : [...prev.travelStyles, style],
-    }));
-  }, []);
-
-  const setBudget = React.useCallback((budget: BudgetRange) => {
-    setData((prev) => ({ ...prev, budget }));
-  }, []);
-
-  const toggleInterest = React.useCallback((interest: string) => {
-    setData((prev) => ({
-      ...prev,
-      interests: prev.interests.includes(interest)
-        ? prev.interests.filter((i) => i !== interest)
-        : [...prev.interests, interest],
+      preferencias: prev.preferencias.includes(pref)
+        ? prev.preferencias.filter((p) => p !== pref)
+        : [...prev.preferencias, pref],
     }));
   }, []);
 
   const isValid = React.useMemo(
     () => ({
-      travelStyles: data.travelStyles.length > 0,
-      budget: data.budget !== null,
-      interests: data.interests.length > 0,
+      personalInfo: data.pais.trim().length > 0 && data.ciudad.trim().length > 0,
+      preferencias: data.preferencias.length > 0,
       all:
-        data.travelStyles.length > 0 &&
-        data.budget !== null &&
-        data.interests.length > 0,
+        data.pais.trim().length > 0 &&
+        data.ciudad.trim().length > 0 &&
+        data.preferencias.length > 0,
     }),
     [data]
   );
@@ -55,9 +49,8 @@ export function useOnboarding(initialData?: Partial<OnboardingFormData>) {
   return {
     data,
     setData,
-    toggleTravelStyle,
-    setBudget,
-    toggleInterest,
+    setField,
+    togglePreference,
     isValid,
   };
 }

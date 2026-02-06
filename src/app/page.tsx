@@ -1,5 +1,5 @@
 import { Header, Footer } from "@/components/layout";
-import { Hero, HowItWorks, Features, Partners, CTA } from "@/components/landing";
+import { Hero, HowItWorks, Features, Partners, CTA, SearchSection } from "@/components/landing";
 
 export default function HomePage() {
   return (
@@ -7,6 +7,7 @@ export default function HomePage() {
       <Header />
       <main className="flex-1">
         <Hero />
+        <SearchSection />
         <HowItWorks />
         <Features />
         <Partners />
