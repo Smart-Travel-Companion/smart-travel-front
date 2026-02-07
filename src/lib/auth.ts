@@ -15,6 +15,41 @@ export interface User {
   updatedAt?: string;
 }
 
+export interface Place {
+  name: string;
+  category: string;
+  distance_km: number;
+  short_reason: string;
+  description: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  image_url: string;
+  images: string[];
+  opening_hours: string;
+  estimated_time_min: number;
+}
+
+export interface RecomendacionesResponse {
+  places: Place[];
+}
+
+export interface RecomendacionesByCity {
+  city: string;
+  address?: string;
+  radiusKm?: number;
+  language?: string;
+}
+
+export interface RecomendacionesByCoords {
+  coordinates: {
+    latitude: number;
+    longitude: number;
+  };
+  radiusKm?: number;
+  language?: string;
+}
+
 export interface AuthResponse {
   token: string;
   usuario: User;
@@ -232,6 +267,39 @@ export async function fetchAvailablePreferences(): Promise<string[]> {
     }
 
     return data.preferencias || [];
+  } catch (error) {
+    if (error instanceof AuthError) throw error;
+    throw new AuthError("Error de conexión. Intenta de nuevo.");
+  }
+}
+
+// Obtener recomendaciones de lugares
+export async function getRecomendaciones(
+  params: RecomendacionesByCity | RecomendacionesByCoords
+): Promise<RecomendacionesResponse> {
+  const token = getToken();
+  if (!token) throw new AuthError("No hay sesión activa", 401);
+
+  try {
+    const response = await fetch(`${API_URL}/api/recomendaciones`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(params),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new AuthError(
+        data.mensaje || data.message || "Error al obtener recomendaciones",
+        response.status
+      );
+    }
+
+    return data;
   } catch (error) {
     if (error instanceof AuthError) throw error;
     throw new AuthError("Error de conexión. Intenta de nuevo.");

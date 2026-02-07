@@ -50,7 +50,7 @@ const quickActions = [
     title: "Explorar destinos",
     description: "Descubre nuevos lugares",
     color: "bg-blue-500/10 text-blue-500",
-    href: "/dashboard",
+    href: "/explore",
   },
   {
     icon: Calendar,
@@ -64,7 +64,7 @@ const quickActions = [
     title: "Recomendaciones IA",
     description: "Sugerencias personalizadas",
     color: "bg-violet-500/10 text-violet-500",
-    href: "/dashboard",
+    href: "/explore",
   },
   {
     icon: User,
@@ -270,8 +270,9 @@ export default function DashboardPage() {
                   <CardContent>
                     <div className="space-y-3">
                       {trendingDestinations.map((dest, i) => (
-                        <div
+                        <Link
                           key={dest.name}
+                          href={`/explore?city=${encodeURIComponent(dest.name)}`}
                           className="flex items-center gap-4 rounded-lg p-3 transition-colors hover:bg-muted/50"
                         >
                           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">
@@ -289,7 +290,7 @@ export default function DashboardPage() {
                           >
                             {dest.tag}
                           </Badge>
-                        </div>
+                        </Link>
                       ))}
                     </div>
                   </CardContent>
