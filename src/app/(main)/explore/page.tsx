@@ -22,6 +22,7 @@ import { useNominatim, type NominatimPlace } from "@/hooks/use-nominatim";
 import { getRecomendaciones, type Place } from "@/lib/auth";
 import { SearchLoading } from "@/components/explore/search-loading";
 import { PlaceDetail } from "@/components/explore/place-detail";
+import Image from "next/image";
 
 // Dynamic import for map (no SSR)
 const ExploreMap = dynamic(
@@ -431,12 +432,14 @@ function ExploreContent() {
                             className="group cursor-pointer overflow-hidden rounded-xl border bg-card text-left transition-all hover:shadow-lg hover:border-primary/30"
                           >
                             {/* Thumbnail */}
-                            <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+                            <div className="relative aspect-4/3 overflow-hidden bg-muted">
                               {place.image_url ? (
-                                <img
+                                <Image
                                   src={place.image_url}
                                   alt={place.name}
-                                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                  fill
+                                  sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 20vw"
+                                  className="object-cover transition-transform duration-300 group-hover:scale-105"
                                   onError={(e) => {
                                     (e.target as HTMLImageElement).style.display = "none";
                                   }}
