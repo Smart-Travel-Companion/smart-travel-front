@@ -1,9 +1,19 @@
-export default function Home() {
+import { Header, Footer } from "@/components/layout";
+import { Hero, HowItWorks, Features, Partners, CTA, SearchSection } from "@/components/landing";
+
+export default function HomePage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main>
-        <p className="text-8xl">SMART TRAVEL</p>
+    <div className="flex min-h-screen flex-col">
+      <Header />
+      <main className="flex-1">
+        <Hero />
+        <SearchSection />
+        <HowItWorks />
+        <Features />
+        <Partners />
+        <CTA />
       </main>
+      <Footer />
     </div>
   );
 }
