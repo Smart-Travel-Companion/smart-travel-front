@@ -10,7 +10,7 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import type { Place } from "@/lib/auth";
+import type { Place } from "@/types";
 
 // Numbered marker icon
 function createNumberedIcon(index: number, isActive: boolean) {
@@ -96,9 +96,14 @@ export function ExploreMap({
 }: ExploreMapProps) {
   const markersRef = useRef<(L.Marker | null)[]>([]);
 
-  if (places.length === 0) return null;
+  // Filter out places with invalid coordinates
+  const validPlaces = places.filter(
+    (p) => p.latitude != null && p.longitude != null && !isNaN(p.latitude) && !isNaN(p.longitude)
+  );
 
-  const center: [number, number] = [places[0].latitude, places[0].longitude];
+  if (validPlaces.length === 0) return null;
+
+  const center: [number, number] = [validPlaces[0].latitude, validPlaces[0].longitude];
 
   return (
     <MapContainer
@@ -113,13 +118,13 @@ export function ExploreMap({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
-      <FitBounds places={places} />
+      <FitBounds places={validPlaces} />
       <FlyToPlace
-        place={activeIndex !== null ? places[activeIndex] : null}
+        place={activeIndex !== null && validPlaces[activeIndex] ? validPlaces[activeIndex] : null}
         trigger={flyToTrigger}
       />
 
-      {places.map((place, i) => (
+      {validPlaces.map((place, i) => (
         <Marker
           key={place.name + i}
           position={[place.latitude, place.longitude]}

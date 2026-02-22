@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-import { login, AuthError } from "@/lib/auth";
+import { login } from "@/services/auth.service";
+import { AuthError } from "@/types";
 import { useAuth } from "@/providers/auth-provider";
 
 export function LoginForm() {

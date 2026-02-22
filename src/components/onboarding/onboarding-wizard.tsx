@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useOnboarding } from "@/hooks/use-onboarding";
 import { useAuth } from "@/providers/auth-provider";
-import { updateUser, updatePreferences } from "@/lib/auth";
+import { updateUser, updatePreferences } from "@/services/user.service";
 import { ProgressBar } from "./progress-bar";
 import {
   WelcomeStep,
