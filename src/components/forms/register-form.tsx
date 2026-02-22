@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-import { register, AuthError } from "@/lib/auth";
+import { register } from "@/services/auth.service";
+import { AuthError } from "@/types";
 import { useAuth } from "@/providers/auth-provider";
 
 const passwordRequirements = [

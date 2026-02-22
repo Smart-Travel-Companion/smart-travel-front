@@ -10,7 +10,7 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import type { Place } from "@/lib/auth";
+import type { Place } from "@/types";
 
 // Numbered marker icon
 function createNumberedIcon(index: number, isActive: boolean) {

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { StepContainer } from "../step-container";
-import { fetchAvailablePreferences } from "@/lib/auth";
+import { fetchAvailablePreferences } from "@/services/user.service";
 import { fallbackPreferences } from "@/constants/onboarding";
 
 interface PreferencesStepProps {

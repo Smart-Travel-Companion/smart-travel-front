@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useState } from "react";
@@ -12,8 +13,7 @@ import {
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import type { Place } from "@/lib/auth";
+import type { Place } from "@/types";
 
 interface PlaceDetailProps {
   place: Place;
@@ -52,7 +52,7 @@ export function PlaceDetail({ place, index }: PlaceDetailProps) {
           {/* Image Gallery */}
           <div className="lg:w-[45%] xl:w-[40%] shrink-0">
             {/* Main image */}
-            <div className="group relative aspect-[16/10] overflow-hidden rounded-xl bg-muted">
+            <div className="group relative aspect-16/10 overflow-hidden rounded-xl bg-muted">
               {!imageError && allImages.length > 0 ? (
                 <img
                   src={allImages[currentImage]}

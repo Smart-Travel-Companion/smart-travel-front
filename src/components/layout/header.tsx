@@ -26,15 +26,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { navItems } from "@/constants";
 import { useAuth } from "@/providers/auth-provider";
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
+import { getInitials } from "@/lib/formatters";
 
 export function Header() {
   const pathname = usePathname();

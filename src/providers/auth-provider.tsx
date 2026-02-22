@@ -1,13 +1,9 @@
 "use client";
 
 import * as React from "react";
-import {
-  getToken,
-  getUser,
-  fetchProfile,
-  logout as authLogout,
-  type User,
-} from "@/lib/auth";
+import { getToken, getUser, logout as authLogout } from "@/services/token.service";
+import { fetchProfile } from "@/services/auth.service";
+import type { User } from "@/types";
 
 interface AuthContextType {
   user: User | null;
