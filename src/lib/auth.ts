@@ -32,6 +32,32 @@ export interface Place {
 
 export interface RecomendacionesResponse {
   places: Place[];
+  viajeId?: string;
+}
+
+// Viaje (Trip) types
+export interface Viaje {
+  _id: string;
+  user?: { nombre: string; email: string } | string;
+  preferencias: string[];
+  ubicacion: {
+    city?: string;
+    address?: string;
+    coordinates?: { latitude: number; longitude: number };
+    radiusKm: number;
+  };
+  places: Place[];
+  preferedPlaces: number[];
+  language: string;
+  estado: "generada" | "guardada";
+  notas?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ViajesResponse {
+  total: number;
+  viajes: Viaje[];
 }
 
 export interface RecomendacionesByCity {
@@ -42,6 +68,7 @@ export interface RecomendacionesByCity {
 }
 
 export interface RecomendacionesByCoords {
+  city?: string;
   coordinates: {
     latitude: number;
     longitude: number;
@@ -299,6 +326,133 @@ export async function getRecomendaciones(
       );
     }
 
+    return data;
+  } catch (error) {
+    if (error instanceof AuthError) throw error;
+    throw new AuthError("Error de conexión. Intenta de nuevo.");
+  }
+}
+
+// === VIAJES (Trips) API ===
+
+// Obtener viajes del usuario autenticado
+export async function getMyTrips(): Promise<ViajesResponse> {
+  const token = getToken();
+  if (!token) throw new AuthError("No hay sesión activa", 401);
+
+  try {
+    const response = await fetch(`${API_URL}/api/viajes`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new AuthError(data.mensaje || "Error al obtener viajes", response.status);
+    }
+    return data;
+  } catch (error) {
+    if (error instanceof AuthError) throw error;
+    throw new AuthError("Error de conexión. Intenta de nuevo.");
+  }
+}
+
+// Obtener viajes por estado
+export async function getTripsByStatus(estado: string): Promise<ViajesResponse> {
+  const token = getToken();
+  if (!token) throw new AuthError("No hay sesión activa", 401);
+
+  try {
+    const response = await fetch(`${API_URL}/api/viajes/estado/${estado}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new AuthError(data.mensaje || "Error al obtener viajes", response.status);
+    }
+    return data;
+  } catch (error) {
+    if (error instanceof AuthError) throw error;
+    throw new AuthError("Error de conexión. Intenta de nuevo.");
+  }
+}
+
+// Actualizar un viaje (estado, notas, preferedPlaces)
+export async function updateTrip(
+  tripId: string,
+  data: { estado?: string; notas?: string; preferedPlaces?: number[] }
+): Promise<Viaje> {
+  const token = getToken();
+  if (!token) throw new AuthError("No hay sesión activa", 401);
+
+  try {
+    const response = await fetch(`${API_URL}/api/viajes/${tripId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    const responseData = await response.json();
+    if (!response.ok) {
+      throw new AuthError(responseData.mensaje || "Error al actualizar viaje", response.status);
+    }
+    return responseData.viaje || responseData;
+  } catch (error) {
+    if (error instanceof AuthError) throw error;
+    throw new AuthError("Error de conexión. Intenta de nuevo.");
+  }
+}
+
+// Obtener un viaje por ID
+export async function getTripById(tripId: string): Promise<Viaje> {
+  const token = getToken();
+  if (!token) throw new AuthError("No hay sesión activa", 401);
+
+  try {
+    const response = await fetch(`${API_URL}/api/viajes/${tripId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new AuthError(data.mensaje || "Error al obtener viaje", response.status);
+    }
+    return data;
+  } catch (error) {
+    if (error instanceof AuthError) throw error;
+    throw new AuthError("Error de conexión. Intenta de nuevo.");
+  }
+}
+
+// Eliminar un viaje
+export async function deleteTrip(tripId: string): Promise<void> {
+  const token = getToken();
+  if (!token) throw new AuthError("No hay sesión activa", 401);
+
+  try {
+    const response = await fetch(`${API_URL}/api/viajes/${tripId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const data = await response.json();
+      throw new AuthError(data.mensaje || "Error al eliminar viaje", response.status);
+    }
+  } catch (error) {
+    if (error instanceof AuthError) throw error;
+    throw new AuthError("Error de conexión. Intenta de nuevo.");
+  }
+}
+
+// Obtener viajes de la comunidad por preferencia (público)
+export async function getCommunityTrips(preferencia: string): Promise<ViajesResponse> {
+  try {
+    const response = await fetch(
+      `${API_URL}/api/viajes/preferencia/${encodeURIComponent(preferencia)}`
+    );
+    const data = await response.json();
+    if (!response.ok) {
+      throw new AuthError(data.mensaje || "Error al obtener viajes", response.status);
+    }
     return data;
   } catch (error) {
     if (error instanceof AuthError) throw error;

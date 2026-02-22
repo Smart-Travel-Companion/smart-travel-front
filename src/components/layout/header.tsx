@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, Compass, User, MapPin, Settings, LogOut, LayoutDashboard } from "lucide-react";
+import { Menu, Compass, User, MapPin, LogOut, LayoutDashboard, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -124,15 +124,15 @@ export function Header() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard" className="cursor-pointer">
+                  <Link href="/my-trips" className="cursor-pointer">
                     <MapPin className="mr-2 h-4 w-4" />
                     Mis Viajes
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard" className="cursor-pointer">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Preferencias
+                  <Link href="/community" className="cursor-pointer">
+                    <Users className="mr-2 h-4 w-4" />
+                    Comunidad
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -250,18 +250,28 @@ export function Header() {
                         Mi Perfil
                       </Link>
                       <Link
-                        href="/dashboard"
+                        href="/my-trips"
                         onClick={() => setIsOpen(false)}
-                        className="rounded-lg px-4 py-3 text-base font-medium text-muted-foreground transition-colors hover:bg-accent"
+                        className={cn(
+                          "rounded-lg px-4 py-3 text-base font-medium transition-colors hover:bg-accent",
+                          pathname === "/my-trips"
+                            ? "bg-accent text-foreground"
+                            : "text-muted-foreground"
+                        )}
                       >
                         Mis Viajes
                       </Link>
                       <Link
-                        href="/dashboard"
+                        href="/community"
                         onClick={() => setIsOpen(false)}
-                        className="rounded-lg px-4 py-3 text-base font-medium text-muted-foreground transition-colors hover:bg-accent"
+                        className={cn(
+                          "rounded-lg px-4 py-3 text-base font-medium transition-colors hover:bg-accent",
+                          pathname === "/community"
+                            ? "bg-accent text-foreground"
+                            : "text-muted-foreground"
+                        )}
                       >
-                        Preferencias
+                        Comunidad
                       </Link>
                     </>
                   )}

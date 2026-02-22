@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, Suspense } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
@@ -11,6 +11,10 @@ import {
   AlertCircle,
   Sparkles,
   ImageOff,
+  Bookmark,
+  BookmarkCheck,
+  Filter,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -19,7 +23,12 @@ import { Badge } from "@/components/ui/badge";
 import { Header, Footer } from "@/components/layout";
 import { AuthGuard } from "@/components/layout/auth-guard";
 import { useNominatim, type NominatimPlace } from "@/hooks/use-nominatim";
-import { getRecomendaciones, type Place } from "@/lib/auth";
+import {
+  getRecomendaciones,
+  updateTrip,
+  getTripById,
+  type Place,
+} from "@/lib/auth";
 import { SearchLoading } from "@/components/explore/search-loading";
 import { PlaceDetail } from "@/components/explore/place-detail";
 import Image from "next/image";
@@ -56,9 +65,11 @@ function ExploreContent() {
   const cityParam = searchParams.get("city") || "";
   const latParam = searchParams.get("lat");
   const lonParam = searchParams.get("lon");
+  const tripIdParam = searchParams.get("tripId");
 
   // States
   const [query, setQuery] = useState(cityParam);
+  const [displayCity, setDisplayCity] = useState(cityParam);
   const [places, setPlaces] = useState<Place[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -66,6 +77,18 @@ function ExploreContent() {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [flyToTrigger, setFlyToTrigger] = useState(0);
   const [showDropdown, setShowDropdown] = useState(false);
+
+  // Category filter states
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(
+    new Set()
+  );
+
+  // Save trip states
+  const [viajeId, setViajeId] = useState<string | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isViewingTrip, setIsViewingTrip] = useState(false);
+
   const {
     suggestions,
     isLoading: nominatimLoading,
@@ -74,8 +97,83 @@ function ExploreContent() {
   } = useNominatim();
 
   const detailRef = useRef<HTMLDivElement>(null);
+  const hasInitiated = useRef(false);
 
-  // Search function
+  // Extract all unique categories from places
+  const allCategories = useMemo(() => {
+    const cats = new Set<string>();
+    places.forEach((place) => {
+      if (place.category) {
+        place.category.split(",").forEach((c) => {
+          const trimmed = c.trim();
+          if (trimmed) cats.add(trimmed);
+        });
+      }
+    });
+    return Array.from(cats).sort();
+  }, [places]);
+
+  // Filter places by selected categories
+  const filteredPlaces = useMemo(() => {
+    if (selectedCategories.size === 0) return places;
+    return places.filter((place) => {
+      if (!place.category) return false;
+      const placeCats = place.category.split(",").map((c) => c.trim());
+      return placeCats.some((cat) => selectedCategories.has(cat));
+    });
+  }, [places, selectedCategories]);
+
+  // Toggle category selection
+  function toggleCategory(cat: string) {
+    setSelectedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) {
+        next.delete(cat);
+      } else {
+        next.add(cat);
+      }
+      return next;
+    });
+    setActiveIndex(null);
+  }
+
+  function clearFilters() {
+    setSelectedCategories(new Set());
+    setActiveIndex(null);
+  }
+
+  // Load saved trip by ID (no AI call)
+  const loadSavedTrip = useCallback(async (tripId: string) => {
+    setIsSearching(true);
+    setError(null);
+    setHasSearched(true);
+    setIsViewingTrip(true);
+
+    try {
+      const trip = await getTripById(tripId);
+      const tripPlaces = Array.isArray(trip.places) ? trip.places : [];
+      setPlaces(tripPlaces);
+      setViajeId(trip._id);
+      setIsSaved(trip.estado === "guardada");
+
+      const city = trip.ubicacion?.city || "";
+      setDisplayCity(city);
+      setQuery(city);
+
+      if (tripPlaces.length > 0) {
+        setActiveIndex(0);
+      }
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Error al cargar el viaje";
+      setError(message);
+      toast.error("Error", { description: message });
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
+
+  // Search function (new AI call)
   const performSearch = useCallback(
     async (city: string, lat?: string | null, lon?: string | null) => {
       if (!city.trim()) return;
@@ -83,11 +181,18 @@ function ExploreContent() {
       setError(null);
       setHasSearched(true);
       setActiveIndex(null);
+      setSelectedCategories(new Set());
+      setIsSaved(false);
+      setViajeId(null);
+      setIsViewingTrip(false);
+      setDisplayCity(city);
 
       try {
         let result;
         if (lat && lon) {
+          // Send city AND coordinates so backend saves the city name
           result = await getRecomendaciones({
+            city,
             coordinates: {
               latitude: parseFloat(lat),
               longitude: parseFloat(lon),
@@ -106,7 +211,10 @@ function ExploreContent() {
         const resultPlaces = result.places || [];
         setPlaces(resultPlaces);
 
-        // Auto-select first place
+        if (result.viajeId) {
+          setViajeId(result.viajeId);
+        }
+
         if (resultPlaces.length > 0) {
           setActiveIndex(0);
           toast.success(
@@ -127,9 +235,15 @@ function ExploreContent() {
     []
   );
 
-  // Auto-search on mount
+  // Auto-load on mount: tripId takes priority, then city search
+  // Ref guard prevents double execution in React Strict Mode
   useEffect(() => {
-    if (cityParam) {
+    if (hasInitiated.current) return;
+    hasInitiated.current = true;
+
+    if (tripIdParam) {
+      loadSavedTrip(tripIdParam);
+    } else if (cityParam) {
       performSearch(cityParam, latParam, lonParam);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -176,15 +290,34 @@ function ExploreContent() {
     return { main: parts[0], secondary: parts.slice(1, 3).join(", ") };
   }
 
-  // Marker or pill click -> select place and scroll to detail
   function handleSelectPlace(index: number) {
     setActiveIndex(index);
     setFlyToTrigger((prev) => prev + 1);
     detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  async function handleSaveTrip() {
+    if (!viajeId || isSaved) return;
+    setIsSaving(true);
+    try {
+      await updateTrip(viajeId, { estado: "guardada" });
+      setIsSaved(true);
+      toast.success("Viaje guardado exitosamente", {
+        description: "Puedes verlo en 'Mis Viajes'",
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error al guardar";
+      toast.error("Error al guardar viaje", { description: msg });
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   const hasResults = !isSearching && places.length > 0;
-  const selectedPlace = activeIndex !== null ? places[activeIndex] : null;
+  const selectedPlace =
+    activeIndex !== null && activeIndex < filteredPlaces.length
+      ? filteredPlaces[activeIndex]
+      : null;
 
   return (
     <AuthGuard>
@@ -276,7 +409,7 @@ function ExploreContent() {
                 {hasResults && (
                   <div className="hidden items-center gap-2 sm:flex">
                     <Badge variant="secondary" className="rounded-full">
-                      {places.length} lugares
+                      {filteredPlaces.length} lugares
                     </Badge>
                   </div>
                 )}
@@ -372,7 +505,7 @@ function ExploreContent() {
                   No se encontraron lugares
                 </h3>
                 <p className="mt-2 max-w-md text-sm text-muted-foreground">
-                  No encontramos recomendaciones para &quot;{cityParam}&quot;.
+                  No encontramos recomendaciones para &quot;{displayCity || cityParam}&quot;.
                   Intenta con otra ciudad o destino.
                 </p>
               </div>
@@ -382,96 +515,207 @@ function ExploreContent() {
           {/* === RESULTS === */}
           {hasResults && (
             <>
-              {/* Results header */}
+              {/* Results header + Save button */}
               <div className="border-b bg-muted/30">
                 <div className="container mx-auto max-w-7xl px-4 py-3 md:px-6">
-                  <h2 className="text-base font-bold sm:text-lg">
-                    Lugares en{" "}
-                    <span className="text-primary">{cityParam}</span>
-                  </h2>
-                  <p className="text-xs text-muted-foreground">
-                    {places.length} recomendaciones por IA — Haz click en un
-                    marcador para ver los detalles
-                  </p>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <h2 className="text-base font-bold sm:text-lg">
+                        {displayCity ? (
+                          <>
+                            Lugares en{" "}
+                            <span className="text-primary">{displayCity}</span>
+                          </>
+                        ) : (
+                          "Lugares recomendados"
+                        )}
+                      </h2>
+                      <p className="text-xs text-muted-foreground">
+                        {filteredPlaces.length} recomendaciones
+                        {isViewingTrip ? " (viaje guardado)" : " por IA"}
+                        {selectedCategories.size > 0 &&
+                          ` (filtrado de ${places.length})`}{" "}
+                        — Haz click en un marcador para ver los detalles
+                      </p>
+                    </div>
+                    {viajeId && (
+                      <Button
+                        variant={isSaved ? "secondary" : "default"}
+                        size="sm"
+                        className="shrink-0 gap-2 cursor-pointer"
+                        onClick={handleSaveTrip}
+                        disabled={isSaving || isSaved}
+                      >
+                        {isSaving ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : isSaved ? (
+                          <BookmarkCheck className="h-4 w-4" />
+                        ) : (
+                          <Bookmark className="h-4 w-4" />
+                        )}
+                        <span className="hidden sm:inline">
+                          {isSaved ? "Guardado" : "Guardar viaje"}
+                        </span>
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* MAP - Full width with padding */}
-              <div className="relative z-0 container mx-auto max-w-7xl px-4 py-4 md:px-6">
-                <div className="h-87.5 sm:h-105 md:h-120 overflow-hidden rounded-xl border">
-                  <ExploreMap
-                    places={places}
-                    activeIndex={activeIndex}
-                    onMarkerClick={handleSelectPlace}
-                    flyToTrigger={flyToTrigger}
-                  />
-                </div>
-              </div>
-
-              {/* DETAIL PANEL */}
-              <div ref={detailRef}>
-                {selectedPlace && (
-                  <PlaceDetail place={selectedPlace} index={activeIndex!} />
-                )}
-              </div>
-
-              {/* Other places - product-style cards */}
-              {places.length > 1 && (
-                <div className="border-t bg-muted/20">
-                  <div className="container mx-auto max-w-7xl px-4 py-6 md:px-6">
-                    <h3 className="mb-4 text-base font-bold sm:text-lg">
-                      Otros lugares para visitar
-                    </h3>
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                      {places.map((place, i) => {
-                        if (i === activeIndex) return null;
-                        return (
-                          <button
-                            key={place.name + i}
-                            onClick={() => handleSelectPlace(i)}
-                            className="group cursor-pointer overflow-hidden rounded-xl border bg-card text-left transition-all hover:shadow-lg hover:border-primary/30"
-                          >
-                            {/* Thumbnail */}
-                            <div className="relative aspect-4/3 overflow-hidden bg-muted">
-                              {place.image_url ? (
-                                <Image
-                                  src={place.image_url}
-                                  alt={place.name}
-                                  fill
-                                  sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 20vw"
-                                  className="object-cover transition-transform duration-300 group-hover:scale-105"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = "none";
-                                  }}
-                                />
-                              ) : (
-                                <div className="flex h-full items-center justify-center">
-                                  <ImageOff className="h-6 w-6 text-muted-foreground/30" />
-                                </div>
-                              )}
-                              {/* Number badge */}
-                              <div className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-[11px] font-bold text-white shadow">
-                                {i + 1}
-                              </div>
-                            </div>
-                            {/* Info */}
-                            <div className="p-2.5">
-                              <p className="truncate text-sm font-semibold leading-tight">
-                                {place.name}
-                              </p>
-                              <p className="mt-1 truncate text-xs text-muted-foreground">
-                                {place.category.split(",")[0].trim()}
-                              </p>
-                              <p className="mt-0.5 text-xs text-muted-foreground/70">
-                                {place.distance_km.toFixed(1)} km
-                              </p>
-                            </div>
-                          </button>
-                        );
-                      })}
+              {/* Category Filter Bar */}
+              {allCategories.length > 0 && (
+                <div className="border-b bg-background">
+                  <div className="container mx-auto max-w-7xl px-4 py-2.5 md:px-6">
+                    <div className="flex items-center gap-2">
+                      <div className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                        <Filter className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Filtrar:</span>
+                      </div>
+                      <div className="flex flex-1 flex-wrap gap-1.5 overflow-x-auto">
+                        {allCategories.map((cat) => {
+                          const isActive = selectedCategories.has(cat);
+                          return (
+                            <Badge
+                              key={cat}
+                              variant={isActive ? "default" : "outline"}
+                              className={`cursor-pointer rounded-full text-xs transition-all ${
+                                isActive
+                                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                                  : "hover:bg-accent"
+                              }`}
+                              onClick={() => toggleCategory(cat)}
+                            >
+                              {cat}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                      {selectedCategories.size > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 shrink-0 gap-1 px-2 text-xs cursor-pointer"
+                          onClick={clearFilters}
+                        >
+                          <X className="h-3 w-3" />
+                          Limpiar
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
+              )}
+
+              {/* No filtered results */}
+              {filteredPlaces.length === 0 && selectedCategories.size > 0 && (
+                <div className="container mx-auto max-w-7xl px-4 py-12 md:px-6">
+                  <div className="text-center">
+                    <Filter className="mx-auto h-10 w-10 text-muted-foreground/40" />
+                    <p className="mt-3 text-sm font-medium">
+                      No hay lugares con estas categorías
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Prueba seleccionando otras categorías
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-4 cursor-pointer"
+                      onClick={clearFilters}
+                    >
+                      Ver todos los lugares
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {filteredPlaces.length > 0 && (
+                <>
+                  {/* MAP */}
+                  <div className="relative z-0 container mx-auto max-w-7xl px-4 py-4 md:px-6">
+                    <div className="h-87.5 sm:h-105 md:h-120 overflow-hidden rounded-xl border">
+                      <ExploreMap
+                        places={filteredPlaces}
+                        activeIndex={activeIndex}
+                        onMarkerClick={handleSelectPlace}
+                        flyToTrigger={flyToTrigger}
+                      />
+                    </div>
+                  </div>
+
+                  {/* DETAIL PANEL */}
+                  <div ref={detailRef}>
+                    {selectedPlace && (
+                      <PlaceDetail
+                        place={selectedPlace}
+                        index={activeIndex!}
+                      />
+                    )}
+                  </div>
+
+                  {/* Other places - product-style cards */}
+                  {filteredPlaces.length > 1 && (
+                    <div className="border-t bg-muted/20">
+                      <div className="container mx-auto max-w-7xl px-4 py-6 md:px-6">
+                        <h3 className="mb-4 text-base font-bold sm:text-lg">
+                          Otros lugares para visitar
+                        </h3>
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                          {filteredPlaces.map((place, i) => {
+                            if (i === activeIndex) return null;
+                            return (
+                              <button
+                                key={place.name + i}
+                                onClick={() => handleSelectPlace(i)}
+                                className="group cursor-pointer overflow-hidden rounded-xl border bg-card text-left transition-all hover:shadow-lg hover:border-primary/30"
+                              >
+                                {/* Thumbnail */}
+                                <div className="relative aspect-4/3 overflow-hidden bg-muted">
+                                  {place.image_url ? (
+                                    <Image
+                                      src={place.image_url}
+                                      alt={place.name}
+                                      fill
+                                      sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 20vw"
+                                      className="object-cover transition-transform duration-300 group-hover:scale-105"
+                                      onError={(e) => {
+                                        (
+                                          e.target as HTMLImageElement
+                                        ).style.display = "none";
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="flex h-full items-center justify-center">
+                                      <ImageOff className="h-6 w-6 text-muted-foreground/30" />
+                                    </div>
+                                  )}
+                                  {/* Number badge */}
+                                  <div className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-[11px] font-bold text-white shadow">
+                                    {i + 1}
+                                  </div>
+                                </div>
+                                {/* Info */}
+                                <div className="p-2.5">
+                                  <p className="truncate text-sm font-semibold leading-tight">
+                                    {place.name}
+                                  </p>
+                                  <p className="mt-1 truncate text-xs text-muted-foreground">
+                                    {place.category
+                                      ? place.category.split(",")[0].trim()
+                                      : ""}
+                                  </p>
+                                  <p className="mt-0.5 text-xs text-muted-foreground/70">
+                                    {place.distance_km?.toFixed(1) ?? "?"} km
+                                  </p>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Attribution */}
@@ -485,7 +729,7 @@ function ExploreContent() {
           )}
         </main>
 
-        {!hasResults && <Footer />}
+        {!hasResults && !isSearching && <Footer />}
       </div>
     </AuthGuard>
   );

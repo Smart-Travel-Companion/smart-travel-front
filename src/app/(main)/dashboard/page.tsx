@@ -1,32 +1,32 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   MapPin,
-  Calendar,
-  Compass,
   Sparkles,
   ArrowRight,
   Globe,
-  TrendingUp,
-  Clock,
   User,
   Map,
+  Users,
+  BookmarkCheck,
+  ImageOff,
+  Loader2,
+  Compass,
+  Layers,
+  Calendar,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Header, Footer } from "@/components/layout";
 import { AuthGuard } from "@/components/layout/auth-guard";
 import { useAuth } from "@/providers/auth-provider";
+import { getMyTrips, type Viaje } from "@/lib/auth";
 
 function getInitials(name: string): string {
   return name
@@ -39,362 +39,296 @@ function getInitials(name: string): string {
 
 function getGreeting(): string {
   const hour = new Date().getHours();
-  if (hour < 12) return "Buenos días";
+  if (hour < 12) return "Buenos dias";
   if (hour < 18) return "Buenas tardes";
   return "Buenas noches";
 }
 
-const quickActions = [
-  {
-    icon: Map,
-    title: "Explorar destinos",
-    description: "Descubre nuevos lugares",
-    color: "bg-blue-500/10 text-blue-500",
-    href: "/explore",
-  },
-  {
-    icon: Calendar,
-    title: "Crear itinerario",
-    description: "Planifica tu viaje",
-    color: "bg-amber-500/10 text-amber-500",
-    href: "/dashboard",
-  },
-  {
-    icon: Sparkles,
-    title: "Recomendaciones IA",
-    description: "Sugerencias personalizadas",
-    color: "bg-violet-500/10 text-violet-500",
-    href: "/explore",
-  },
-  {
-    icon: User,
-    title: "Mi perfil",
-    description: "Gestiona tu cuenta",
-    color: "bg-emerald-500/10 text-emerald-500",
-    href: "/profile",
-  },
-];
-
-const trendingDestinations = [
-  { name: "Cusco", country: "Perú", tag: "Cultural" },
-  { name: "Cancún", country: "México", tag: "Playa" },
-  { name: "Buenos Aires", country: "Argentina", tag: "Gastronomía" },
-  { name: "Cartagena", country: "Colombia", tag: "Histórico" },
-];
-
 export default function DashboardPage() {
   const { user } = useAuth();
+  const [trips, setTrips] = useState<Viaje[]>([]);
+  const [isLoadingTrips, setIsLoadingTrips] = useState(true);
 
   const firstName = user?.nombre?.split(" ")[0] || "Viajero";
-  const hasPreferences =
-    user?.preferencias && user.preferencias.length > 0;
+  const hasPreferences = user?.preferencias && user.preferencias.length > 0;
   const hasProfile = user?.pais || user?.ciudad;
+
+  useEffect(() => {
+    getMyTrips()
+      .then((data) => setTrips(data.viajes || []))
+      .catch(() => setTrips([]))
+      .finally(() => setIsLoadingTrips(false));
+  }, []);
+
+  const savedTrips = trips.filter((t) => t.estado === "guardada");
+  const uniqueDestinations = new Set(
+    trips.map((t) => t.ubicacion?.city).filter(Boolean)
+  ).size;
+  const totalPlaces = trips.reduce(
+    (acc, t) => acc + (Array.isArray(t.places) ? t.places.length : 0),
+    0
+  );
+  const recentTrips = [...trips]
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+    .slice(0, 6);
+
+  function formatDate(dateStr: string) {
+    return new Date(dateStr).toLocaleDateString("es-ES", {
+      day: "numeric",
+      month: "short",
+    });
+  }
+
+  function getTripImage(trip: Viaje): string | null {
+    if (trip.places && Array.isArray(trip.places) && trip.places.length > 0) {
+      return trip.places[0].image_url || null;
+    }
+    return null;
+  }
 
   return (
     <AuthGuard>
       <div className="flex min-h-screen flex-col">
         <Header />
 
-        <main className="flex-1">
-          {/* Welcome Hero */}
-          <div className="relative overflow-hidden border-b">
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,var(--tw-gradient-stops))] from-primary/8 via-transparent to-transparent" />
-            <div className="container relative mx-auto max-w-6xl px-4 py-10 md:px-6">
+        <main className="flex-1 bg-muted/30">
+          {/* Hero */}
+          <div className="border-b bg-background">
+            <div className="container mx-auto max-w-6xl px-4 py-8 md:px-6">
               <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-4">
-                  <Avatar className="h-16 w-16 border-2 border-primary/20 shadow-lg">
-                    <AvatarFallback className="bg-primary text-xl font-bold text-primary-foreground">
+                  <Avatar className="h-12 w-12 shadow-md sm:h-14 sm:w-14">
+                    <AvatarFallback className="bg-primary text-base font-bold text-primary-foreground sm:text-lg">
                       {user ? getInitials(user.nombre) : "?"}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="text-sm text-muted-foreground">
-                      {getGreeting()}
-                    </p>
-                    <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-                      {firstName}
-                    </h1>
+                    <p className="text-xs text-muted-foreground">{getGreeting()}</p>
+                    <h1 className="text-lg font-bold sm:text-xl">{firstName}</h1>
                     {hasProfile && (
-                      <div className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
-                        <MapPin className="h-3.5 w-3.5" />
-                        {[user?.ciudad, user?.pais]
-                          .filter(Boolean)
-                          .join(", ")}
-                      </div>
+                      <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <MapPin className="h-3 w-3" />
+                        {[user?.ciudad, user?.pais].filter(Boolean).join(", ")}
+                      </p>
                     )}
                   </div>
                 </div>
+                <Link href="/explore">
+                  <Button className="gap-2 cursor-pointer">
+                    <Sparkles className="h-4 w-4" />
+                    Nueva exploracion
+                  </Button>
+                </Link>
+              </div>
 
-                <div className="flex gap-3">
-                  <Link href="/profile">
-                    <Button variant="outline" size="sm" className="gap-2">
-                      <User className="h-4 w-4" />
-                      Ver perfil
-                    </Button>
-                  </Link>
-                  <Link href="/onboarding">
-                    <Button size="sm" className="gap-2">
-                      <Sparkles className="h-4 w-4" />
-                      {hasPreferences ? "Mis preferencias" : "Configurar perfil"}
-                    </Button>
-                  </Link>
-                </div>
+              {/* KPI Indicators */}
+              <div className="mt-6 grid grid-cols-2 gap-3 border-t pt-5 sm:grid-cols-4">
+                {[
+                  { label: "Viajes", value: trips.length, icon: Map, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/30" },
+                  { label: "Guardados", value: savedTrips.length, icon: BookmarkCheck, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/30" },
+                  { label: "Destinos", value: uniqueDestinations, icon: Globe, color: "text-violet-600", bg: "bg-violet-50 dark:bg-violet-950/30" },
+                  { label: "Lugares", value: totalPlaces, icon: MapPin, color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/30" },
+                ].map((s) => {
+                  const Icon = s.icon;
+                  return (
+                    <Card key={s.label}>
+                      <CardContent className="flex items-center gap-3 p-4">
+                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${s.bg}`}>
+                          <Icon className={`h-5 w-5 ${s.color}`} />
+                        </div>
+                        <div>
+                          {isLoadingTrips ? (
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                          ) : (
+                            <p className={`text-2xl font-bold tabular-nums leading-none ${s.color}`}>{s.value}</p>
+                          )}
+                          <p className="mt-1 text-xs text-muted-foreground">{s.label}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             </div>
           </div>
 
-          <div className="container mx-auto max-w-6xl px-4 py-8 md:px-6">
-            {/* Stats Row */}
-            <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Card className="relative overflow-hidden">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        Preferencias
-                      </p>
-                      <p className="mt-1 text-2xl font-bold">
-                        {user?.preferencias?.length || 0}
-                      </p>
-                    </div>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/10">
-                      <Sparkles className="h-5 w-5 text-violet-500" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="relative overflow-hidden">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        Viajes
-                      </p>
-                      <p className="mt-1 text-2xl font-bold">0</p>
-                    </div>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10">
-                      <Globe className="h-5 w-5 text-blue-500" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="relative overflow-hidden">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        Destinos
-                      </p>
-                      <p className="mt-1 text-2xl font-bold">0</p>
-                    </div>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10">
-                      <MapPin className="h-5 w-5 text-emerald-500" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="relative overflow-hidden">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                        Itinerarios
-                      </p>
-                      <p className="mt-1 text-2xl font-bold">0</p>
-                    </div>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10">
-                      <Calendar className="h-5 w-5 text-amber-500" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+          <div className="container mx-auto max-w-6xl px-4 py-6 md:px-6">
+            {/* Navigation */}
+            <div className="mb-6 flex gap-2 overflow-x-auto">
+              {[
+                { icon: Map, label: "Explorar", href: "/explore" },
+                { icon: BookmarkCheck, label: "Mis viajes", href: "/my-trips" },
+                { icon: Users, label: "Comunidad", href: "/community" },
+                { icon: User, label: "Perfil", href: "/profile" },
+              ].map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link key={item.label} href={item.href}>
+                    <Button variant="outline" size="sm" className="gap-2 cursor-pointer whitespace-nowrap">
+                      <Icon className="h-4 w-4" />
+                      {item.label}
+                    </Button>
+                  </Link>
+                );
+              })}
             </div>
 
-            <div className="grid gap-8 lg:grid-cols-3">
-              {/* Main Content */}
-              <div className="space-y-8 lg:col-span-2">
-                {/* Quick Actions */}
-                <div>
-                  <h2 className="mb-4 text-lg font-semibold">
-                    Acciones rápidas
-                  </h2>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {quickActions.map((action) => {
-                      const Icon = action.icon;
-                      return (
-                        <Link key={action.title} href={action.href}>
-                          <Card className="group h-full transition-all hover:border-primary/30 hover:shadow-md">
-                            <CardContent className="flex items-center gap-4 p-4">
-                              <div
-                                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${action.color}`}
-                              >
-                                <Icon className="h-6 w-6" />
-                              </div>
-                              <div className="flex-1">
-                                <p className="font-medium">{action.title}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {action.description}
-                                </p>
-                              </div>
-                              <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                            </CardContent>
-                          </Card>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </div>
+            {/* Recent Trips */}
+            <div className="mb-8">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-sm font-semibold">Viajes recientes</h2>
+                {recentTrips.length > 0 && (
+                  <Link href="/my-trips">
+                    <Button variant="ghost" size="sm" className="gap-1 text-xs cursor-pointer text-muted-foreground">
+                      Ver todos <ArrowRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </Link>
+                )}
+              </div>
 
-                {/* Trending Destinations */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                          <TrendingUp className="h-4 w-4 text-primary" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-base">
-                            Destinos populares
-                          </CardTitle>
-                          <CardDescription>
-                            Los más buscados esta semana
-                          </CardDescription>
-                        </div>
-                      </div>
+              {isLoadingTrips ? (
+                <div className="flex items-center justify-center py-20">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : recentTrips.length === 0 ? (
+                <Card className="border-dashed">
+                  <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                      <Map className="h-8 w-8 text-muted-foreground/30" />
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {trendingDestinations.map((dest, i) => (
-                        <Link
-                          key={dest.name}
-                          href={`/explore?city=${encodeURIComponent(dest.name)}`}
-                          className="flex items-center gap-4 rounded-lg p-3 transition-colors hover:bg-muted/50"
-                        >
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">
-                            {i + 1}
-                          </span>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">{dest.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {dest.country}
-                            </p>
+                    <div>
+                      <p className="font-medium">Sin viajes todavia</p>
+                      <p className="mt-1 max-w-xs text-sm text-muted-foreground">
+                        Explora un destino con inteligencia artificial y tus viajes apareceran aqui.
+                      </p>
+                    </div>
+                    <Link href="/explore">
+                      <Button className="gap-2 cursor-pointer">
+                        <Sparkles className="h-4 w-4" />
+                        Explorar destinos
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {recentTrips.map((trip) => {
+                    const city = trip.ubicacion?.city || "Sin ciudad";
+                    const placesCount = Array.isArray(trip.places) ? trip.places.length : 0;
+                    const img = getTripImage(trip);
+
+                    return (
+                      <Link key={trip._id} href={`/explore?tripId=${trip._id}`}>
+                        <Card className="group h-full cursor-pointer overflow-hidden transition-all hover:shadow-lg hover:border-primary/20">
+                          <div className="relative h-36 bg-muted">
+                            {img ? (
+                              <Image
+                                src={img}
+                                alt={city}
+                                fill
+                                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                                className="object-cover transition-transform duration-300 group-hover:scale-105"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = "none";
+                                }}
+                              />
+                            ) : (
+                              <div className="flex h-full items-center justify-center">
+                                <ImageOff className="h-8 w-8 text-muted-foreground/15" />
+                              </div>
+                            )}
+                            <div className="absolute inset-0 bg-linear-to-t from-black/50 to-transparent" />
+                            <Badge
+                              variant={trip.estado === "guardada" ? "default" : "secondary"}
+                              className="absolute right-2 top-2 rounded-full text-[10px] backdrop-blur-sm"
+                            >
+                              {trip.estado === "guardada" ? "Guardado" : "Generado"}
+                            </Badge>
+                            <div className="absolute bottom-2.5 left-3">
+                              <p className="text-sm font-bold text-white drop-shadow-md">{city}</p>
+                            </div>
                           </div>
-                          <Badge
-                            variant="secondary"
-                            className="rounded-full text-xs"
-                          >
-                            {dest.tag}
-                          </Badge>
-                        </Link>
+                          <CardContent className="flex items-center justify-between p-3 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Layers className="h-3 w-3" /> {placesCount} lugares
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" /> {formatDate(trip.createdAt)}
+                            </span>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Bottom row */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              {/* Preferences */}
+              {hasPreferences ? (
+                <Card>
+                  <CardContent className="p-5">
+                    <div className="mb-3 flex items-center justify-between">
+                      <h3 className="flex items-center gap-2 text-sm font-semibold">
+                        <Compass className="h-4 w-4 text-primary" />
+                        Tus preferencias
+                      </h3>
+                      <Link href="/onboarding">
+                        <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-muted-foreground cursor-pointer">
+                          Editar
+                        </Button>
+                      </Link>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {user?.preferencias?.map((pref) => (
+                        <Badge key={pref} variant="secondary" className="rounded-full text-xs capitalize">
+                          {pref}
+                        </Badge>
                       ))}
                     </div>
                   </CardContent>
                 </Card>
-              </div>
-
-              {/* Sidebar */}
-              <div className="space-y-6">
-                {/* Preferences Card */}
-                {hasPreferences ? (
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="flex items-center gap-2 text-sm font-medium">
-                          <Compass className="h-4 w-4 text-primary" />
-                          Tus preferencias
-                        </CardTitle>
-                        <Link href="/onboarding">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
-                          >
-                            Editar
-                          </Button>
-                        </Link>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex flex-wrap gap-1.5">
-                        {user?.preferencias?.map((pref) => (
-                          <Badge
-                            key={pref}
-                            variant="secondary"
-                            className="rounded-full capitalize"
-                          >
-                            {pref}
-                          </Badge>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <Card className="border-dashed">
-                    <CardContent className="flex flex-col items-center gap-3 p-6 text-center">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                        <Compass className="h-6 w-6 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Configura tu perfil</p>
-                        <p className="text-xs text-muted-foreground">
-                          Personaliza tus preferencias para mejores
-                          recomendaciones
-                        </p>
-                      </div>
-                      <Link href="/onboarding">
-                        <Button size="sm" className="mt-1 gap-2">
-                          <Sparkles className="h-4 w-4" />
-                          Comenzar
-                        </Button>
-                      </Link>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Recent Activity */}
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex items-center gap-2 text-sm font-medium">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      Actividad reciente
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-col items-center gap-2 py-4 text-center">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                        <Clock className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Tu actividad aparecerá aquí
-                      </p>
+              ) : (
+                <Card className="border-dashed">
+                  <CardContent className="flex items-center gap-4 p-5">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                      <Compass className="h-5 w-5 text-primary" />
                     </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Configura tus preferencias</p>
+                      <p className="text-xs text-muted-foreground">Mejores recomendaciones para ti</p>
+                    </div>
+                    <Link href="/onboarding">
+                      <Button size="sm" className="gap-1.5 cursor-pointer">
+                        <Sparkles className="h-3.5 w-3.5" /> Comenzar
+                      </Button>
+                    </Link>
                   </CardContent>
                 </Card>
+              )}
 
-                {/* Tip Card */}
-                <Card className="border-primary/20 bg-primary/5">
-                  <CardContent className="p-5">
-                    <div className="flex gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                        <Sparkles className="h-4 w-4 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">Consejo del día</p>
-                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                          Completa tu perfil con preferencias y ubicación para
-                          que la IA pueda darte recomendaciones más precisas y
-                          personalizadas.
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+              {/* Community */}
+              <Card>
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-violet-500/10">
+                    <Users className="h-5 w-5 text-violet-500" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Comunidad viajera</p>
+                    <p className="text-xs text-muted-foreground">Descubre viajes de otros usuarios</p>
+                  </div>
+                  <Link href="/community">
+                    <Button variant="outline" size="sm" className="gap-1.5 cursor-pointer">
+                      <Globe className="h-3.5 w-3.5" /> Explorar
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </main>
