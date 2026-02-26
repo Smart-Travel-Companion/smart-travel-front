@@ -1,12 +1,24 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Compass } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useAuth } from "@/providers/auth-provider";
 
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
+
+  if (!isLoading && isAuthenticated) {
+    router.replace("/dashboard");
+    return null;
+  }
+
   return (
     <div className="relative min-h-screen">
       {/* Header */}

@@ -1,11 +1,5 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { RegisterForm } from "@/components/forms/register-form";
-
-export const metadata: Metadata = {
-  title: "Crear Cuenta",
-  description: "Crea tu cuenta en Smart Travel Companion",
-};
 
 export default function RegisterPage() {
   return (

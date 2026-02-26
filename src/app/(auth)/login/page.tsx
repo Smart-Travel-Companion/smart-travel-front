@@ -1,11 +1,5 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { LoginForm } from "@/components/forms/login-form";
-
-export const metadata: Metadata = {
-  title: "Iniciar Sesión",
-  description: "Accede a tu cuenta de Smart Travel Companion",
-};
 
 export default function LoginPage() {
   return (
